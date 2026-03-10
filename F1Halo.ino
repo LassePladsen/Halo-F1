@@ -1,9 +1,10 @@
 const int DRIVERS_NUMBER = 22;
-const String fw_version = "1.0.1";
 
 // fix the results api for when there are changes that result in a lesser number of drivers
-// retrieve stats api results for version checking (display notice if an update is available)
 // add other rss feed in other languages
+// add language switcher to wifi setup screen
+// settings: add UTC offset modifier (for people using VPN or anyways if WiFi detection goes crazy)
+// settings: make user decide if they want to see drivers standings, constructors or both one after the other in the main page (select tool)
 
 #define DISPLAY_TYPE DISPLAY_CYD_543
 #define TOUCH_CAPACITIVE
@@ -11,6 +12,10 @@ const String fw_version = "1.0.1";
 #define TOUCH_SCL 4
 #define TOUCH_INT 3
 #define TOUCH_RST -1
+#define TOUCH_MOSI 11
+#define TOUCH_MISO 13
+#define TOUCH_CLK 12
+#define TOUCH_CS 38
 #define TOUCH_MIN_X 1
 #define TOUCH_MAX_X 480
 #define TOUCH_MIN_Y 1
@@ -18,7 +23,12 @@ const String fw_version = "1.0.1";
 #define SCREEN_WIDTH 272
 #define SCREEN_HEIGHT 480
 
-//Stream *debug;
+#ifdef TOUCH_CAPACITIVE
+const String fw_version = "1.0.1";
+#else
+const String fw_version = "1.0.1-R";
+#endif
+
 
 #include <ArduinoJson.h>
 #include <time.h>
@@ -187,9 +197,7 @@ TabsStruct tabs;
 #include "localized_strings.h"
 #include "utils.h"
 #include "notifications.h"
-#include "image_handler.h"
 #include "ui.h"
-//#include "bluetooth_audio_ui.h"
 #include "wifi_handler.h"
 
 
