@@ -46,7 +46,8 @@ static void language_selection_event_handler(lv_event_t * e) {
       localized_text = languages[sel].strings;
       Serial.printf("Language changed to: %s\n", languages[sel].displayName);
       create_or_reload_settings_ui();
-      update_ui(nullptr); //update time sensitive ui
+      //update_ui(nullptr); //update time sensitive ui
+      force_update_ui();
       //create_or_reload_news_ui(nullptr); //takes too long
   }
 }
@@ -133,6 +134,23 @@ static void night_brightness_slider_event_cb(lv_event_t * e) {
       if (in_range) adjustBrightness(night_brightness);
     }
     
+}
+
+static void no_spoiler_switch_handler(lv_event_t * e) {
+    lv_obj_t * sw = (lv_obj_t *) lv_event_get_target(e);
+
+    // Discard any active lift
+    noSpoilerLifted           = false;
+    noSpoilerLiftedForSession = "";
+
+    if (lv_obj_has_state(sw, LV_STATE_CHECKED)) {
+        noSpoilerModeActive = true;
+    } else {
+        noSpoilerModeActive = false;
+    }
+
+    force_update_ui();
+    //update_ui(nullptr); //maybe add if condition to only update if we're potentially exposed to spoilers?
 }
 
 static void night_mode_switch_handler(lv_event_t * e) {
@@ -246,7 +264,8 @@ static void night_mode_roller_event_handler(lv_event_t * e) {
 static void reload_clock_event_handler(lv_event_t * e) {
   lv_event_code_t code = lv_event_get_code(e);
   update_internal_clock();
-  update_ui(nullptr);
+  force_update_ui();
+  //update_ui(nullptr);
 
   lv_obj_t *msgbox = lv_msgbox_create(NULL);
   lv_msgbox_add_text(msgbox, localized_text->clock_updated);
@@ -810,10 +829,110 @@ lv_obj_t * create_time_roller(lv_obj_t *parent, const char *icon, const char *te
     return obj;
 }
 
+// Creates a horizontal rule in the settings container.
+// Pass nullptr for title to get a plain line with no label.
+lv_obj_t * create_settings_divider(lv_obj_t *parent, const char *title = nullptr) {
+    // Wrapper row: full width, holds optional label + the line
+    lv_obj_t *wrapper = lv_obj_create(parent);
+    lv_obj_remove_style_all(wrapper);
+    lv_obj_set_size(wrapper, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_ver(wrapper, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(wrapper, 8, LV_PART_MAIN);
+    lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(wrapper,
+        LV_FLEX_ALIGN_START,
+        LV_FLEX_ALIGN_CENTER,
+        LV_FLEX_ALIGN_CENTER);
+    lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
+    // Make sure the wrapper starts on a new flex track in the parent
+    //lv_obj_add_flag(wrapper, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK); //apparently causing to flex in a new column instead of a new row
+
+    if (title != nullptr && strlen(title) > 0) {
+        lv_obj_t *lbl = lv_label_create(wrapper);
+        lv_label_set_text(lbl, title);
+        lv_obj_set_style_text_font(lbl, &montserrat_12, 0);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0x888888), 0);
+        lv_obj_set_style_pad_right(lbl, 8, 0);
+        lv_obj_set_height(lbl, LV_SIZE_CONTENT);
+    }
+
+    // The horizontal line: a thin object that grows to fill remaining width
+    lv_obj_t *line = lv_obj_create(wrapper);
+    lv_obj_remove_style_all(line);
+    lv_obj_set_flex_grow(line, 1);
+    lv_obj_set_height(line, 1);
+    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(line, lv_color_hex(0x333333), 0);
+    lv_obj_remove_flag(line, LV_OBJ_FLAG_SCROLLABLE);
+
+    return wrapper;
+}
+
+
+// Replaces standings_container content with a spoiler-proof button.
+// wasStandings: true = hiding championship standings, false = hiding session results.
+void show_spoiler_button(lv_obj_t *container, bool wasStandings) {
+    // Record what we are hiding so the button callback knows what to restore
+    noSpoilerWasStandings      = wasStandings;
+    noSpoilerLastKnownSession  = wasStandings ? "" : current_results; // standings have no session name
+
+    lv_obj_clean(container);
+
+    // Full-width centring wrapper
+    lv_obj_t *wrapper = lv_obj_create(container);
+    lv_obj_remove_style_all(wrapper);
+    lv_obj_set_size(wrapper, LV_PCT(100), 110);
+    lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(wrapper,
+        LV_FLEX_ALIGN_CENTER,
+        LV_FLEX_ALIGN_CENTER,
+        LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(wrapper, 8, LV_PART_MAIN);
+    lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Warning icon
+    lv_obj_t *icon = lv_label_create(wrapper);
+    lv_label_set_text(icon, LV_SYMBOL_WARNING);
+    lv_obj_set_style_text_color(icon, lv_color_hex(HALO_COLOR_RED), 0);
+
+    lv_obj_t *label = lv_label_create(wrapper);
+    lv_label_set_text(label, localized_text->new_results_available);
+
+    // "Show Results" button
+    lv_obj_t *btn = lv_btn_create(wrapper);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(HALO_COLOR_RED), 0);
+    lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+    lv_obj_t *lbl = lv_label_create(btn);
+    lv_label_set_text(lbl, localized_text->show_results);
+    lv_obj_set_style_text_font(lbl, &montserrat_14, 0);
+
+    lv_obj_add_event_cb(btn, [](lv_event_t *e) {
+        noSpoilerLifted           = true;
+        noSpoilerLiftedForSession = noSpoilerLastKnownSession;
+
+        lv_obj_clean(standings_container);
+
+        if (noSpoilerWasStandings) {
+            populate_standings(standings_container, 0);
+            if (standings_ui_timer) lv_timer_del(standings_ui_timer);
+            standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
+                animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
+            }, 15000, standings_container);
+        } else {
+            populate_results(standings_container, 0);
+            if (standings_ui_timer) lv_timer_del(standings_ui_timer);
+            standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
+                animate_results((lv_obj_t *)lv_timer_get_user_data(t));
+            }, 15000, standings_container);
+        }
+    }, LV_EVENT_CLICKED, nullptr);
+}
+
 // THE BIG ONE
 // @TODO - make nice graphics for Qualy and race results
 // @TODO - make results/standings not scrollable
-void create_or_reload_race_sessions() {
+void create_or_reload_race_sessions(bool force_reload) {
 
   if (!race_styles_initialized) {
       race_styles_initialized = true;
@@ -884,6 +1003,13 @@ void create_or_reload_race_sessions() {
     }
   }
 
+  // ── No Spoiler: reset lift when the active session has changed ──────────
+  noSpoilerLastKnownSession = last_session.name; // always keep this current
+  if (noSpoilerLifted && last_session.name != noSpoilerLiftedForSession) {
+      noSpoilerLifted           = false;
+      noSpoilerLiftedForSession = "";
+  }
+
   // Start Finish Separator
   lv_obj_t *stripe = create_chequered_stripe(sessions_container);
   lv_obj_add_style(stripe, &style_stripe, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -894,19 +1020,23 @@ void create_or_reload_race_sessions() {
       if (!standings_loaded_once) return;
   }
 
-  if (!hasRaceWeekendStarted() && millis() > last_checked_session_results + check_delay) {
+  if (!hasRaceWeekendStarted() && (force_reload || millis() > last_checked_session_results + check_delay)) {
       last_checked_session_results = millis();
 
       if (standings_ui_timer) lv_timer_del(standings_ui_timer);
       lv_anim_del(standings_container, NULL);
       lv_obj_clean(standings_container);
 
-      populate_standings(standings_container, 0);
+      if (noSpoilerModeActive && !noSpoilerLifted) {
+          show_spoiler_button(standings_container, true);  // true = hiding standings
+      } else {
+          populate_standings(standings_container, 0);
 
-      standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
-          Serial.println("Inside Standings Animation Timer");
-          animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
-      }, 15000, standings_container);
+          standings_ui_timer = lv_timer_create([](lv_timer_t *t) {
+              Serial.println("Inside Standings Animation Timer");
+              animate_standings((lv_obj_t *)lv_timer_get_user_data(t));
+          }, 15000, standings_container);
+      }
 
       check_delay = 30 * 60000;
       return;
@@ -934,7 +1064,7 @@ void create_or_reload_race_sessions() {
     } 
 
     // only run this part once every 30 minutes
-    if (millis() > last_checked_session_results + check_delay) {
+    if (force_reload || millis() > last_checked_session_results + check_delay) {
       last_checked_session_results = millis();
 
       // clean container
@@ -948,18 +1078,24 @@ void create_or_reload_race_sessions() {
 
       if (!got_results || !results_loaded_once) {
         Serial.println("API Check Run but encountered an error");
-        return;
+        if (last_results != current_results) return;
+      } else {
+        last_results = current_results;
       }
 
       check_delay = 1800000;
     
       if (!results_loaded_once) return;
 
-      populate_results(standings_container, 0);
+      if (noSpoilerModeActive && !noSpoilerLifted) {
+          show_spoiler_button(standings_container, false);  // false = hiding results
+      } else {
+          populate_results(standings_container, 0);
 
-      standings_ui_timer = lv_timer_create([](lv_timer_t * t){
-          animate_results((lv_obj_t *)lv_timer_get_user_data(t));
-      }, 15000, standings_container);
+          standings_ui_timer = lv_timer_create([](lv_timer_t * t){
+              animate_results((lv_obj_t *)lv_timer_get_user_data(t));
+          }, 15000, standings_container);
+      }
 
       Serial.println("Results for Free Practice Rendered");
     } else {
@@ -970,7 +1106,7 @@ void create_or_reload_race_sessions() {
   }
 
   // only run this part once every 30 minutes
-  if (millis() < last_checked_session_results + 1800000ULL && results_checked_once) return; // if time now is less than time of next check then stop
+  if (!force_reload && millis() < last_checked_session_results + 1800000ULL && results_checked_once) return; // if time now is less than time of next check then stop
   results_checked_once = true;
   last_checked_session_results = millis();
 
@@ -985,7 +1121,9 @@ void create_or_reload_race_sessions() {
 
   if (!got_results) {
     Serial.println("API Check Run but encountered an error");
-    return;
+    if (last_results != current_results) return;
+  } else {
+    last_results = current_results;
   }
 
   if (last_session.name == "Sprint Qualifying" || last_session.name == "Sprint Race" || last_session.name == "Qualifying" || last_session.name == "Race") {
@@ -998,11 +1136,15 @@ void create_or_reload_race_sessions() {
     // show Race Grid when available
     if (!results_loaded_once) return;
 
-    populate_results(standings_container, 0);
+    if (noSpoilerModeActive && !noSpoilerLifted) {
+        show_spoiler_button(standings_container, false);  // false = hiding results
+    } else {
+        populate_results(standings_container, 0);
 
-    standings_ui_timer = lv_timer_create([](lv_timer_t * t){
-        animate_results((lv_obj_t *)lv_timer_get_user_data(t));
-    }, 15000, standings_container);
+        standings_ui_timer = lv_timer_create([](lv_timer_t * t){
+            animate_results((lv_obj_t *)lv_timer_get_user_data(t));
+        }, 15000, standings_container);
+    }
     return;
   }
 }
@@ -1202,13 +1344,12 @@ void create_or_reload_news_ui(lv_timer_t *timer) {
 }
 
 // Runs once or when language is changed
-// @TODO -- add auto night mode switch + night mode brightness slider + night time selector
 void create_or_reload_settings_ui() {
   lv_obj_clean(tabs.settings);
 
   lv_obj_t *cont = lv_obj_create(tabs.settings);
   lv_obj_remove_style_all(cont);
-  lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100)); //LV_SIZE_CONTENT
   lv_obj_center(cont);
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(cont,
@@ -1218,19 +1359,23 @@ void create_or_reload_settings_ui() {
 
   lv_obj_set_style_pad_row(cont, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-  /*
-  lv_obj_t * btn1 = lv_button_create(tabs.settings);
-  lv_obj_add_event_cb(btn1, reload_clock_event_handler, LV_EVENT_CLICKED, NULL);
-  lv_obj_align(btn1, LV_ALIGN_CENTER, 0, -40);
-
-  lv_obj_t * label = lv_label_create(btn1);
-  lv_label_set_text(label, localized_text->reload_clock);
-  lv_obj_center(label);*/
+  // Scrollbar styles
+  lv_obj_set_style_bg_color(tabs.settings, lv_color_black(), LV_PART_SCROLLBAR);
+  lv_obj_set_style_bg_color(tabs.settings, lv_color_hex(HALO_COLOR_RED), LV_PART_SCROLLBAR); // | LV_STATE_SCROLLED
+  lv_obj_set_style_width(tabs.settings, 3, LV_PART_SCROLLBAR);
 
   // Language
   language_selector = create_language_selector(cont);
   lv_obj_add_event_cb(language_selector, language_selection_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
 
+  // -- Race Settings --
+  create_settings_divider(cont, localized_text->race);
+  // No Spoiler Mode
+  no_spoiler_switch = create_switch(cont, LV_SYMBOL_WARNING, localized_text->no_spoiler_mode, noSpoilerModeActive);
+  lv_obj_add_event_cb(no_spoiler_switch, no_spoiler_switch_handler, LV_EVENT_VALUE_CHANGED, NULL);
+
+  // -- Display Settings --
+  create_settings_divider(cont, localized_text->display);
   // Brightness
   brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->brightness, 5, 255, brightness);
   lv_obj_add_event_cb(brightness_slider, brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
@@ -1242,7 +1387,7 @@ void create_or_reload_settings_ui() {
   night_brightness_slider = create_slider(cont, LV_SYMBOL_IMAGE, localized_text->night_brightness, 5, 255, night_brightness);
   lv_obj_add_event_cb(night_brightness_slider, night_brightness_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-  //add_bluetooth_settings_button(cont);
+  
 }
 
 // Runs once

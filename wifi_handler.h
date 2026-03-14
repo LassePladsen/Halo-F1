@@ -111,11 +111,16 @@ bool getLastSessionResults(SessionResults results[DRIVERS_NUMBER]) {
     return false;
   }
 
+  WiFiClientSecure secureClient;
+  secureClient.setInsecure();          // same approach as fetchLatestNews
+
   HTTPClient http;
 
   String url = "https://api.openf1.org/v1/session_result?session_key=latest&position%3C=" + (String)DRIVERS_NUMBER;
-  http.begin(url.c_str());
   //http.begin("https://api.openf1.org/v1/session_result?session_key=7782&position%3C=20"); // debug
+
+  http.begin(secureClient, url);       // explicit TLS client passed
+  http.setTimeout(10000); 
 
   int httpCode = http.GET();
   if (httpCode != 200) {

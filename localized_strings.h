@@ -43,6 +43,10 @@ typedef struct {
   const char* night_mode;
   const char* night_brightness;
   const char* update_available_title;
+  const char* no_spoiler_mode;
+  const char* new_results_available;
+  const char* show_results;
+  const char* display;
 } LanguageStrings;
 
 const LanguageStrings language_strings_en PROGMEM = {
@@ -90,6 +94,10 @@ const LanguageStrings language_strings_en PROGMEM = {
   "Night Mode",
   "Night Mode Brightness",
   "Update Available!",
+  "No Spoiler Mode",
+  "New Results Available",
+  "Show Results",
+  "Display",
 };
 
 const LanguageStrings language_strings_it PROGMEM = {
@@ -137,6 +145,10 @@ const LanguageStrings language_strings_it PROGMEM = {
   "Modalità Notturna",
   "Luminosità Notturna",
   "Aggiornamento Disponibile!",
+  "Modalità No Spoiler",
+  "Nuovi Risultati Disponibili",
+  "Mostra Risultati",
+  "Schermo",
 };
 
 const LanguageStrings language_strings_es PROGMEM = {
@@ -184,6 +196,10 @@ const LanguageStrings language_strings_es PROGMEM = {
   "Modo Nocturno",
   "Brillo de Modo Nocturno",
   "¡Actualización Disponible!",
+  "Modo Sin Spoiler",
+  "Nuevos Resultados Disponibles",
+  "Mostrar Resultados",
+  "Pantalla",
 };
 
 const LanguageStrings language_strings_fr PROGMEM = {
@@ -231,6 +247,10 @@ const LanguageStrings language_strings_fr PROGMEM = {
   "Mode Nuit",
   "Luminosite Mode Nuit",
   "Mise a jour disponible!",
+  "Mode Sans Spoiler",
+  "Nouveaux Resultats Disponibles",
+  "Afficher les Resultats",
+  "Affichage",
 };
 
 const LanguageStrings language_strings_nl PROGMEM = {
@@ -278,6 +298,10 @@ const LanguageStrings language_strings_nl PROGMEM = {
   "Nachtmodus",
   "Helligkeit Nachtmodus",
   "Update Beschikbaar!",
+  "Geen Spoilermodus",
+  "Nieuwe Resultaten Beschikbaar",
+  "Toon Resultaten",
+  "Scherm",
 };
 
 const LanguageStrings language_strings_de PROGMEM = {
@@ -325,6 +349,61 @@ const LanguageStrings language_strings_de PROGMEM = {
   "Nachtmodus",
   "Helligkeit Nachtmodus",
   "Update Verfügbar!",
+  "Kein Spoilermodus",
+  "Neue Ergebnisse Verfügbar",
+  "Ergebnisse Anzeigen",
+  "Anzeige",
+};
+
+const LanguageStrings language_strings_pt PROGMEM = {
+  {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"},
+  {"Jan", "Fev", "Mar", "Abr", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"},
+  {"Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"},
+  {"Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"},
+  "Carregando acesso WiFi...",
+  "Conectado ao WiFi com sucesso!",
+  "Falha ao conectar ao WiFi, conecte-se à rede \"Halo-F1\" pelo seu telefone para definir as credenciais",
+  "Ok",
+  "Sim",
+  "Não",
+  "Fechar",
+  "Cancelar",
+  "Sucesso",
+  "Falha",
+  "Recarregar relógio",
+  "O relógio foi atualizado!",
+  "TL1",
+  "TL2",
+  "TL3",
+  "Classificação",
+  "Q1",
+  "Q2",
+  "Q3",
+  "Corrida",
+  "Corrida Sprint",
+  "Classificação Sprint",
+  "Treino Livre",
+  "Treino Livre 1",
+  "Treino Livre 2",
+  "Treino Livre 3",
+  "Próximo Grande Prêmio",
+  "Próxima Sessão",
+  "Fim de Semana Sprint",
+  "CLASSIFICAÇÃO DOS PILOTOS",
+  "CLASSIFICAÇÃO DAS EQUIPES",
+  "Escaneie para Ler",
+  "Escaneie para Abrir",
+  "Idioma",
+  "Português",
+  "Português",
+  "Brilho",
+  "Modo Noturno",
+  "Brilho do Modo Noturno",
+  "Atualização Disponível!",
+  "Modo Sem Spoiler",
+  "Novos Resultados Disponíveis",
+  "Mostrar Resultados",
+  "Tela",
 };
 
 uint32_t get_team_color(String team) {
@@ -357,6 +436,7 @@ const LanguageEntry languages[] = {
     {"Français",  &language_strings_fr},
     {"Nederlands",&language_strings_nl},
     {"Deutsch",   &language_strings_de},
+    {"Português", &language_strings_pt},
 };
 
 const size_t languageCount = sizeof(languages) / sizeof(languages[0]);

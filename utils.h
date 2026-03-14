@@ -1,6 +1,6 @@
 // forward declaration
 String current_f1_champion = "4"; // Norris
-void create_or_reload_race_sessions();
+void create_or_reload_race_sessions(bool force_reload = false);
 void adjustBrightness(uint8_t brightness);
 void create_or_reload_settings_ui();
 void sendStatisticData(lv_timer_t *timer);
@@ -165,7 +165,7 @@ const char* getLocalizedSessionName(RaceSession &session) {
 // Results API doesn't give driver infos, this retrieves them from the saved standings to avoid another API call
 DriverStanding* getDriverInfoByNumber(const String& driverNumber) {
   for (int i = 0; i < current_season.driver_count; i++) {
-    Serial.printf("Driver number: %s\n", current_season.driver_standings[i].number);
+    //Serial.printf("Driver number: %s\n", current_season.driver_standings[i].number);
     if (current_season.driver_standings[i].number == driverNumber || current_season.driver_standings[i].number == current_f1_champion && driverNumber == "1") {
       return &current_season.driver_standings[i];  // return pointer to the matching struct
     }
@@ -254,6 +254,45 @@ void update_ui(lv_timer_t *timer) {
 
   Serial.println("Updating Race Sessions");
   create_or_reload_race_sessions();
+  Serial.println("Race Sessions Updated");
+
+  // NIGHT MODE
+  if (nightModeActive) {
+    if (adjustedTime.tm_hour == nightModeTimes.start_hours && adjustedTime.tm_min == nightModeTimes.start_minutes) {
+      adjustBrightness(night_brightness);
+    }
+    if (adjustedTime.tm_hour == nightModeTimes.stop_hours && adjustedTime.tm_min == nightModeTimes.stop_minutes) {
+      adjustBrightness(brightness);
+    }
+  }
+}
+
+void force_update_ui() {
+  struct tm timeinfo;
+  
+  if (!getLocalTime(&timeinfo)) return;
+
+  time_t timeEpoch = timegm(&timeinfo);
+
+  if (timeEpoch <= 1000) return;
+
+  // Apply offset in seconds
+  timeEpoch += UTCoffset;
+  //timeEpoch += 60; //time correction (clock is dragging a tiny bit)
+
+
+  // Convert back to local tm with rollover handled
+  struct tm adjustedTime;
+  gmtime_r(&timeEpoch, &adjustedTime);
+
+  //if (timeinfo.tm_min % 60 == 0) update_internal_clock();
+  Serial.println("Updating Clock and shit");
+  if (racetab_labels.clock) lv_label_set_text_fmt(racetab_labels.clock, "%02d:%02d", adjustedTime.tm_hour, adjustedTime.tm_min);
+  if (racetab_labels.date) lv_label_set_text_fmt(racetab_labels.date, "%s %d, %s", localized_text->short_days[adjustedTime.tm_wday], adjustedTime.tm_mday, localized_text->months[adjustedTime.tm_mon]);
+  if (racetab_labels.race_name) lv_label_set_text_fmt(racetab_labels.race_name, "%s", next_race.raceName.c_str());
+
+  Serial.println("Updating Race Sessions");
+  create_or_reload_race_sessions( true );
   Serial.println("Race Sessions Updated");
 
   // NIGHT MODE

@@ -1,11 +1,15 @@
 const int DRIVERS_NUMBER = 22;
 
+// ESP32 Boards used v3.3.4
+
 // fix the results api for when there are changes that result in a lesser number of drivers
 // add other rss feed in other languages
 // add language switcher to wifi setup screen
 // settings: add UTC offset modifier (for people using VPN or anyways if WiFi detection goes crazy)
 // settings: make user decide if they want to see drivers standings, constructors or both one after the other in the main page (select tool)
 // settings: add bool switch to control if tabs should be switched to news when a new article is fetched
+
+// WIP 1.1: add Portuguese language, add no spoiler mode --> ADD reset when switch from off to on in settings, check sprint qualy results timings, check why settings separator causes tab to crash
 
 #define DISPLAY_TYPE DISPLAY_CYD_543
 #define TOUCH_CAPACITIVE
@@ -42,7 +46,7 @@ const String fw_version = "1.0.1-R";
 WiFiManager wm;
 
 // LVGL
-#include <lvgl.h>
+#include <lvgl.h> // v9.3.0
 #include "lv_conf.h"
 LV_FONT_DECLARE(f1_symbols_28);
 LV_FONT_DECLARE(montserrat_12);
@@ -145,19 +149,27 @@ struct SessionResults {
 };
 
 SessionResults results[DRIVERS_NUMBER];
-String current_results;
+String current_results, last_results;
 bool results_checked_once = false, results_loaded_once = false, standings_loaded_once = false, got_new_results = false;
 
 unsigned long long last_checked_session_results = 0;
 unsigned int check_delay = 0;
 
-uint8_t brightness = 255, night_brightness = 30;
-lv_obj_t * brightness_slider, *night_brightness_slider;
-
 lv_display_t * disp;
 lv_timer_t * clock_timer, * f1_api_timer, * standings_ui_timer, *news_timer, *statistics_timer, *notifications_timer;
-lv_obj_t * language_selector;
+
 lv_obj_t * sessions_container, * standings_container;
+
+// Settings stuff
+lv_obj_t * language_selector; // localized_text defined in localized_strings.h
+lv_obj_t * no_spoiler_switch; bool noSpoilerModeActive = true;
+lv_obj_t * brightness_slider, *night_brightness_slider; uint8_t brightness = 255, night_brightness = 30;
+
+// No-Spoiler lift state (not a setting — temporary per-session override)
+bool   noSpoilerLifted            = false; // true after user presses "Show"
+String noSpoilerLiftedForSession  = "";    // session name that was active when lifted
+String noSpoilerLastKnownSession  = "";    // updated each render cycle; read by the button callback
+bool   noSpoilerWasStandings      = false; // true = was hiding standings; false = was hiding results
 
 static int standings_offset = 0;
 const int STANDINGS_PAGE_SIZE = 5;
@@ -190,7 +202,7 @@ struct TabsStruct {
 TabsStruct tabs;
 
 // LCD SCREEN
-#include <bb_spi_lcd.h>
+#include <bb_spi_lcd.h> // v2.7.1
 #include "lv_bb_spi_lcd.h"
 #include "touchscreen.h"
 // FILES
@@ -199,7 +211,7 @@ TabsStruct tabs;
 #include "utils.h"
 #include "notifications.h"
 #include "ui.h"
-#include "wifi_handler.h"
+#include "wifi_handler.h" // WiFiManager by Tzapu v2.0.17
 
 
 void setup() {
